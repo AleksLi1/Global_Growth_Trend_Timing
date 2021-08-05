@@ -9,7 +9,7 @@ The GTT model combines price momentum and economic data. It can be described as 
 - If a recession is not signaled, go long QQQ. 
 - If a recession is signaled and SPY is below it’s 10-month average, exit and wait for the model to exit the recessionary period.
 
-![stats](https://ibb.co/vHfS24F)
+![stats](https://i.ibb.co/mGd3Q5j/Figure-1.png)
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
