@@ -1,6 +1,6 @@
 # Global Growth Trend Timing Model
 
-This project is an adaptation of the GTT model which i found [here](https://decodingmarkets.com/growth-trend-timing-with-us-stocks/). 
+This project is an adaptation of the GTT model which I found [here](https://decodingmarkets.com/growth-trend-timing-with-us-stocks/). 
 
 The GTT model combines price momentum and economic data. It can be described as follows: 
 
