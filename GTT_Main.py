@@ -14,6 +14,7 @@ ticker = ['QQQ', 'SPY']
 prices = yf.download(tickers=ticker, start=start, end=end)['Adj Close'].dropna()  # Primary asset
 INDPRO = pd.read_csv('INDPRO.csv', index_col=0).dropna()  # Industrial Production: Total Index
 RRSFS = pd.read_csv('RRSFS.csv', index_col=0).dropna()  # Advance Real Retail and Food Services Sales
+UNRATE = pd.read_csv('UNRATE.csv', index_col=0).dropna()  # Unemployment Rate
 
 # Standardise data across datasets
 # Price data
@@ -34,16 +35,21 @@ for k, v in date_range:
     trading_month_end.append(nyse_trading_date_range_index[-1])
 
 # FRED data
-INDPRO = INDPRO.iloc[INDPRO.index.to_list().index(start):-1, :]
-RRSFS = RRSFS.iloc[RRSFS.index.to_list().index(start):-1, :]
+INDPRO = INDPRO.loc[start:start_of_month(end), :]
+RRSFS = RRSFS.loc[start:start_of_month(end), :]
+UNRATE = UNRATE.loc[start:start_of_month(end), :]
 
 # Calculate indicators
 # Recession indicators
 dataset = pd.DataFrame()
-conditions_indicator1 = [(INDPRO['INDPRO'].shift(1) < INDPRO['INDPRO'].shift(12)) &
-                         (RRSFS['RRSFS'].shift(1) < RRSFS['RRSFS'].shift(12))]
-choices_indicator1 = [1]
-dataset['indicator1'] = np.select(conditions_indicator1, choices_indicator1)
+# Original GTT Model
+conditions_original = [(INDPRO['INDPRO'].shift(1) < INDPRO['INDPRO'].shift(12)) &
+                       (RRSFS['RRSFS'].shift(1) < RRSFS['RRSFS'].shift(12))]
+choices_original = [1]
+dataset['original'] = np.select(conditions_original, choices_original)
+# Unemployment GTT Model
+UNRATE['UnemploymentMA'] = UNRATE['UNRATE'].rolling(12).mean()
+dataset['unemployment'] = np.where(UNRATE['UNRATE'] >= UNRATE['UnemploymentMA'], 1, 0)
 dataset.index = trading_month_start
 
 # Price indicators
@@ -61,12 +67,23 @@ result_df.index = trading_month_start
 final_df = pd.concat([dataset, result_df], axis=1)
 
 # Trading signals
-conditions_signal1 = [(final_df['indicator1'] == 1) & (final_df['indicator2'] == 1)]
-conditions_signal2 = [(final_df['indicator1'] == 1) & (final_df['indicator2'] == 0)]
-final_df['signal'] = np.select(conditions_signal1, ['True'])
-final_df['signal'] = np.select(conditions_signal2, ['False'])
-final_df['signal'] = np.where(final_df['indicator1'] == 0, 'True', 'False')
-prices['signal'] = 0
+# Signals for the Orginal GTT Model
+conditions_signal1 = [(final_df['original'] == 1) & (final_df['indicator2'] == 1)]
+conditions_signal2 = [(final_df['original'] == 1) & (final_df['indicator2'] == 0)]
+final_df['signal_original'] = np.select(conditions_signal1, ['True'])
+final_df['signal_original'] = np.select(conditions_signal2, ['False'])
+final_df['signal_original'] = np.where(final_df['original'] == 0, 'True', 'False')
+prices['signal_original'] = 0
+
+# Signals for the Unemployment GTT Model
+conditions_signal3 = [(final_df['unemployment'] == 1) & (final_df['indicator2'] == 1)]
+conditions_signal4 = [(final_df['unemployment'] == 1) & (final_df['indicator2'] == 0)]
+final_df['signal_unemployment'] = np.select(conditions_signal3, ['True'])
+final_df['signal_unemployment'] = np.select(conditions_signal4, ['False'])
+final_df['signal_unemployment'] = np.where(final_df['unemployment'] == 0, 'True', 'False')
+prices['signal_unemployment'] = 0
+
+# Signals dataset: final touches
 nyse_trading_date_range = nyse.schedule(trading_month_start[0], trading_month_end[-1])
 nyse_trading_date_range_index = mcal.date_range(nyse_trading_date_range, frequency='1D') \
     .strftime('%Y-%m-%d') \
@@ -81,13 +98,17 @@ prices['Tomorrows Returns'] = prices['Tomorrows Returns'].shift(-1)
 prices['Market Returns'] = 0.
 prices['Market Returns'] = np.log(prices['SPY']/prices['SPY'].shift(1))
 prices['Market Returns'] = prices['Market Returns'].shift(-1)
-prices['Strategy Returns'] = 0.
-prices['Strategy Returns'] = np.where(final_df['signal'] == 'True', prices['Tomorrows Returns'], 0)
+prices['Original GTT Returns'] = 0.
+prices['Original GTT Returns'] = np.where(final_df['signal_original'] == 'True', prices['Tomorrows Returns'], 0)
+prices['Unemployment GTT Returns'] = 0.
+prices['Unemployment GTT Returns'] = np.where(final_df['signal_unemployment'] == 'True', prices['Tomorrows Returns'], 0)
 prices['Cumulative Market Returns'] = np.cumsum(prices['Market Returns'])
-prices['Cumulative Strategy Returns'] = np.cumsum(prices['Strategy Returns'])
+prices['Cumulative Original Strategy Returns'] = np.cumsum(prices['Original GTT Returns'])
+prices['Cumulative Unemployment Strategy Returns'] = np.cumsum(prices['Unemployment GTT Returns'])
 plt.figure(figsize=(10, 5))
 plt.plot(prices['Cumulative Market Returns'], color='r', label='Market Returns')
-plt.plot(prices['Cumulative Strategy Returns'], color='g', label='Strategy Returns')
+plt.plot(prices['Cumulative Original Strategy Returns'], color='g', label='Original GTT Model Returns')
+plt.plot(prices['Cumulative Unemployment Strategy Returns'], color='b', label='Unemployment GTT Model Returns')
 plt.legend()
 plt.show()
 
