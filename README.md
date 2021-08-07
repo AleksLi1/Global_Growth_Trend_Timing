@@ -21,6 +21,8 @@ The unemployment version of the GTT model combines price momentum with unemploym
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
+## Contact
+If you would like to get in touch, my email is aleksandras.v.liauska@bath.edu.
 
 ## License
 [GNU AGPLv3](https://choosealicense.com/licenses/agpl-3.0/)
